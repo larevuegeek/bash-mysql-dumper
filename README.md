@@ -38,7 +38,7 @@ sudo ./mysql-dumper.sh
 | BACKUP_DIR | Emplacement de la sauvegarde | Chemin système |
 | BACKUP_EXPIRATION_DAYS | Délai de conservation des sauvegarde en jours | Chiffre |
 | VERBOSE | Active ou désactive la verbosité | Y ou N |
-| GZIP_COMPRESSION | [plugins/onedrive/README.md] | Y ou N |
+| GZIP_COMPRESSION | Active la compression GZIP | Y ou N |
 | ADD_DROP_DATABASE | Ajoute l'option --drop-database | Y ou N |
 | ADD_DROP_TABLE | Ajoute l'option --drop-table | Y ou N |
 
