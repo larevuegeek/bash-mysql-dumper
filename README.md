@@ -34,7 +34,7 @@ sudo ./mysql-dumper.sh
 ## Options Disponibles
 
 | Option | Description | Valeur attendu |
-| ------ | ------ |
+| ------ | ------ | ------ |
 | BACKUP_DIR | Emplacement de la sauvegarde | Chemin système |
 | BACKUP_EXPIRATION_DAYS | Délai de conservation des sauvegarde en jours | Chiffre |
 | VERBOSE | Active ou désactive la verbosité | Y ou N |
