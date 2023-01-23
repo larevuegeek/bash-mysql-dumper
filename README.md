@@ -18,7 +18,7 @@ cd bash-mysql-dumper
 chmod +x mysql-dumper.sh
 ```
 
-Enfin, remplacez les varables BACKUP_USER et BACKUP_PASSWORD par les valeurs correspondants à votre systèmes
+Enfin, remplacez les variables BACKUP_USER et BACKUP_PASSWORD par les valeurs correspondantes à votre système 
 
 ```sh
 BACKUP_USER="UTILISATEUR"
@@ -33,7 +33,7 @@ sudo ./mysql-dumper.sh
 
 ## Options Disponibles
 
-| Option | Description | Valeur attendu |
+| Option | Description | Valeur attendue |
 | ------ | ------ | ------ |
 | BACKUP_DIR | Emplacement de la sauvegarde | Chemin système |
 | BACKUP_EXPIRATION_DAYS | Délai de conservation des sauvegarde en jours | Chiffre |
