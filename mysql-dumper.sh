@@ -1,4 +1,6 @@
 #!/bin/bash
+# v1.1
+# Il est désormais possible de faire un backup par table ou par base au choix (MODE 1 / 2)
 # v1.0
 # Ce script effectue une sauvegarde complète de toutes les bases de données MySQL
 # Il conserve les sauvegarde pendant X jours (BACKUP_EXPIRATION_DAYS)
@@ -9,7 +11,6 @@
 # Vous pouvez activer le mode VERBOSE pour avoir des infos pendant la sauvegarde
 
 #### AMELIORATIONS A VENIR 
-# Ajout d'un mode de sauvegarde par tables/databases au choix
 # Ajout d'un envoi de mail récapitulatif
 # Vérifier le repertoire à purger lors de la rotation des sauvgerdes
 
@@ -27,6 +28,9 @@ BACKUP_PASSWORD="xxx"
 
 
 #### Paramètres
+# Mode 1 = 1 fichier par base
+# Mode 2 = 1 fichier par table
+MODE=2
 
 #Délai de conservation des sauvegarde en jours
 BACKUP_EXPIRATION_DAYS=10
@@ -42,20 +46,19 @@ ADD_DROP_DATABASE="N"
 
 #Ajoute l'option --add-drop-table lors du dump
 ADD_DROP_TABLE="Y"
-
 ####
 
 #heure du début du script
 START_TIME=$(date +%s%N)
 
 #On vérifie que l'utilisateur est en root ou en sudo
-if [[ "$EUID" != 0 ]]; then
+if [ -z "$SUDO_USER" ]; then
     echo "Vous devez executer ce script en root ou avec sudo"
     exit 13
 fi 
 
 ### Check Mysql
-PING=$((mysqladmin ping -h $BACKUP_HOST --user="$BACKUP_USER" --password="$BACKUP_PASSWORD") 2>&1)
+PING=$(mysqladmin ping -h "${BACKUP_HOST}" --user="${BACKUP_USER}" --password="${BACKUP_PASSWORD}" 2>&1)
 if [ "$PING" != "mysqld is alive" ]; then
     echo "Error: Unable to connected to MySQL Server, exiting !!"
     echo $PING
@@ -88,63 +91,80 @@ n=1
 #on parcours la liste des bases de données
 for database in $databases;
 do  
-    if [ $i -gt $n ] 
+   if [ $i -gt $n ] 
     then
-        
         #heure du début de dump de la database en cours
         START_DB_TIME=$(date +%s%N)
-
-        if [ "$VERBOSE" == "Y" ]; then 
+        if [ "$VERBOSE" = "Y" ]; then 
             echo "traitement de la base "$database" en cours..."
         fi
 
         DATABASE_DIR="${DESTINATION_DIR}/${database}"
-
         ##on créé le dossier de destination
         [ ! -d "$DATABASE_DIR" ] && mkdir -p $DATABASE_DIR
-
         #on se place dans le dossier de destination
         cd $DATABASE_DIR
-
         #debut de la commande MySQL DUMP
         MYSQLDUMP_CDM="--host="$BACKUP_HOST" --user="$BACKUP_USER" --password="$BACKUP_PASSWORD" --single-transaction"
         
         #Ajout du DROP TABLE
-        if [[ $ADD_DROP_DATABASE == "Y" || $ADD_DROP_DATABASE == "y" ]]; then
+        if [[ "$ADD_DROP_DATABASE" = "Y" || "$ADD_DROP_DATABASE" = "y" ]]; then
             MYSQLDUMP_CDM="${MYSQLDUMP_CDM} --add-drop-table"
         fi
 
-        #Ajout du DROP DATABASE
-        if [[ $ADD_DROP_TABLE == "Y" || $ADD_DROP_TABLE == "y" ]]; then
-            MYSQLDUMP_CDM="${MYSQLDUMP_CDM} --add-drop-database"
+        #Mode 1 file per table
+        if [[ $MODE = 2 ]]; then
+            tables=$(mysql ${database} --host="$BACKUP_HOST" --user="$BACKUP_USER" --password="$BACKUP_PASSWORD" --execute="SHOW TABLES;" --batch | tail -n +2)
+            
+            for table in $tables;
+                do 
+                    #Execution du dump avec gestion de la compression GZ
+                    if [[ "$GZIP_COMPRESSION" = "Y" || "$GZIP_COMPRESSION" = "y" ]]; then
+                        FILENAME="$table.sql.gz"
+                        mysqldump $MYSQLDUMP_CDM --databases $database --tables $table > $FILENAME | gzip -c > $FILENAME
+                    else #Execution du dump sans compression
+                        FILENAME="$table.sql"
+                        mysqldump $MYSQLDUMP_CDM --databases $database --tables $table > $FILENAME
+                    fi
+
+                    #On calcule la taille du fichier sauvegardé
+                    table_filesize=$(du -h "$FILENAME" | awk '{ print $1}')
+                    if [[ "$VERBOSE" = "Y" ]]; then 
+                        echo $table_filesize" sauvegardés"
+                    fi
+                done
+        else #mode 1 file per database
+
+            #Ajout du DROP DATABASE
+            if [[ "$ADD_DROP_TABLE" = "Y" || "$ADD_DROP_TABLE" = "y" ]]; then
+                MYSQLDUMP_CDM="${MYSQLDUMP_CDM} --add-drop-database"
+            fi
+
+            #Execution du dump avec gestion de la compression GZ
+            if [[ "$GZIP_COMPRESSION" = "Y" || "$GZIP_COMPRESSION" = "y" ]]; then
+                FILENAME="$database.sql.gz"
+                mysqldump $MYSQLDUMP_CDM --databases $database > $FILENAME | gzip -c > $FILENAME
+            else #Execution du dump sans compression
+                FILENAME="$database.sql"
+                mysqldump $MYSQLDUMP_CDM --databases $database > $FILENAME
+            fi
+
+            #On calcule la taille du fichier sauvegardé
+            database_filesize=$(du -h "$FILENAME" | awk '{ print $1}')
+            if [[ "$VERBOSE" = "Y" ]]; then 
+                echo $database_filesize" sauvegardés"
+            fi
         fi
 
-        #Execution du dump avec gestion de la compression GZ
-        if [[ $GZIP_COMPRESSION == "Y" || $GZIP_COMPRESSION == "y" ]]; then
-            FILENAME="$database.sql.gz"
-            mysqldump $MYSQLDUMP_CDM --databases $database > $FILENAME | gzip -c > $FILENAME
-        else #Execution du dump sans compression
-            FILENAME="$database.sql"
-            mysqldump $MYSQLDUMP_CDM --databases $database > $FILENAME
-        fi
-
-        #On calcule la taille du fichier sauvegardé
-        database_filesize=$(du -h "$FILENAME" | awk '{ print $1}')
-
-        if [ "$VERBOSE" == "Y" ]; then 
-            echo $database_filesize" sauvegardés"
-        fi
-    
         #heure de fin de dump de la database en cours
         END_DB_TIME=$(date +%s%N)
-
-        if [ "$VERBOSE" == "Y" ]; then 
+        if [[ "$VERBOSE" = "Y" ]]; then 
             TIME_DB_ELAPSED="$((($END_DB_TIME-$START_DB_TIME)/1000000))"
             TIME_DB_ELAPSED_SEC=`echo "scale=2;${TIME_DB_ELAPSED}/1000" | bc`
             echo "Durée de la sauvegarde "$database" : "$TIME_DB_ELAPSED_SEC" seconde(s)"
         fi
     fi
-    let "i+=1" 
+    let "i = i + 1"
 done
 
 #heure de fin de script
@@ -155,15 +175,15 @@ TIME_ELAPSED="$((($END_TIME-$START_TIME)/1000000))"
 TIME_ELAPSED_SEC=`echo "scale=2;${TIME_ELAPSED}/1000" | bc`
 
 #Taille totale des fichiers sauvegardées
-if [ "$VERBOSE" == "Y" ]; then 
+if [[ "$VERBOSE" = "Y" ]]; then
     total_filesize=$(du -sh "$DESTINATION_DIR" | awk '{ print $1}')
     echo "Taille totale des bases de données : "$total_filesize""
     echo "Durée totale de la sauvegarde : "$TIME_ELAPSED_SEC" secondes"
 fi
 
 #### Nettoyage des sauvgardes
-if [ ! -z "$BACKUP_EXPIRATION_DAYS" ]; then
-    if [ "$VERBOSE" == "Y" ]; then 
+if [[ ! -z "$BACKUP_EXPIRATION_DAYS" ]]; then
+    if [[ "$VERBOSE" = "Y" ]]; then
         echo -en "$(date) : nettoyage des dossiers : "
     fi
     find $BACKUP_DIR/ -maxdepth 1 -mtime $BACKUP_EXPIRATION_DAYS -type d -exec rm -rf {} \;
