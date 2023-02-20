@@ -3,7 +3,7 @@
 # Il est désormais possible de faire un backup par table ou par base au choix (MODE 1 / 2)
 # v1.0
 # Ce script effectue une sauvegarde complète de toutes les bases de données MySQL
-# Il conserve les sauvegardes pendant X jours (BACKUP_EXPIRATION_DAYS)
+# Il conserve les sauvegarde pendant X jours (BACKUP_EXPIRATION_DAYS)
 # Ensuite il purge automatiquement les sauvegardes expirées
 
 # Vous pouvez activer la compression GZIP
@@ -17,7 +17,7 @@
 #Chemin de destination des fichiers de sauvegarde
 BACKUP_DIR="/var/backups/mysql/"
 
-#Nom d'hôte ou adresse IP du serveur de base de données
+#Nom d'hôte ou adress IP du serveur de base de données
 BACKUP_HOST="localhost"
 
 #Nom d'utilisateur de la base de données
@@ -32,7 +32,7 @@ BACKUP_PASSWORD="xxx"
 # Mode 2 = 1 fichier par table
 MODE=2
 
-#Délai de conservation des sauvegardes en jours
+#Délai de conservation des sauvegarde en jours
 BACKUP_EXPIRATION_DAYS=10
 
 #Mode verbose : affiche des informations lors du dump
